@@ -897,8 +897,13 @@ func (dm *DownloadManager) UpdateConfig(newConfig *config.Config) {
 	dm.maxConcurrent = newConfig.MaxConcurrentDownloads
 	dm.outputDir = newConfig.DownloadPath
 
+	// Create a new downloader with updated paths
+	dm.downloader = core.NewDownloader(newConfig.YtDlpPath, newConfig.FfmpegPath)
+
 	log.Printf("[MANAGER] Config updated: MaxConcurrent %d -> %d, OutputDir -> %s",
 		oldMaxConcurrent, dm.maxConcurrent, dm.outputDir)
+	log.Printf("[MANAGER] Downloader updated with new paths: yt-dlp=%s, ffmpeg=%s", 
+		newConfig.YtDlpPath, newConfig.FfmpegPath)
 
 	// Adjust workers if needed
 	if oldMaxConcurrent != dm.maxConcurrent {

@@ -402,6 +402,25 @@ func (d *Downloader) buildYtDlpArgs(req DownloadRequest, download *Download) []s
 }
 
 // buildAudioFFmpegArgs creates optimized FFmpeg arguments for audio processing
+// RequiresFfmpeg checks if the given download type and format require ffmpeg for post-processing
+func RequiresFfmpeg(downloadType DownloadType, format string) bool {
+	switch downloadType {
+	case AudioDownload:
+		// All audio formats require ffmpeg for post-processing
+		return true
+	case VideoDownload:
+		// Video formats that require ffmpeg for post-processing/merging
+		switch format {
+		case "mp4", "mkv", "webm", "avi":
+			return true
+		default:
+			return false
+		}
+	default:
+		return false
+	}
+}
+
 func (d *Downloader) buildAudioFFmpegArgs(format string) string {
 	baseArgs := "-progress pipe:2 -nostats -loglevel info"
 

@@ -92,8 +92,13 @@ func CheckFfmpegAvailable(path string) bool {
 	return isAvailable("ffmpeg")
 }
 
-func isAvailable(command string) bool {
+// IsCommandAvailable checks if a specific command is available
+func IsCommandAvailable(command string) bool {
 	cmd := exec.Command(command, "-version")
 	err := cmd.Run()
 	return err == nil
+}
+
+func isAvailable(command string) bool {
+	return IsCommandAvailable(command)
 }

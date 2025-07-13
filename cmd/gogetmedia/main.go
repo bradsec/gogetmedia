@@ -128,14 +128,24 @@ func main() {
 		}
 	}
 
-	// Check for ffmpeg availability
+	// Check for ffmpeg availability - REQUIRED
 	fmt.Printf("Checking ffmpeg availability...\n")
 	if !core.CheckFfmpegAvailable(cfg.FfmpegPath) {
-		fmt.Printf("⚠️  ffmpeg not found at %s or in system PATH\n", cfg.FfmpegPath)
-		fmt.Printf("   Post-processing features will be limited\n")
-		fmt.Printf("   Please install ffmpeg for full functionality\n")
+		fmt.Printf("❌ ffmpeg not found at %s or in system PATH\n", cfg.FfmpegPath)
+		fmt.Printf("\nffmpeg is required for this application to function properly.\n")
+		fmt.Printf("Please either:\n")
+		fmt.Printf("  1. Install ffmpeg system-wide and ensure it's in your PATH\n")
+		fmt.Printf("  2. Download ffmpeg and set the correct path in the application settings\n")
+		fmt.Printf("\nThe application will now start in settings-only mode.\n")
+		fmt.Printf("You must configure a valid ffmpeg path before downloads will work.\n\n")
 	} else {
-		fmt.Printf("✓ ffmpeg is available\n")
+		// Get ffmpeg version info
+		versions := core.GetVersionInfo(cfg.YtDlpPath, cfg.FfmpegPath)
+		if versions.FfmpegVersion != "" {
+			fmt.Printf("✓ ffmpeg is available (%s)\n", versions.FfmpegVersion)
+		} else {
+			fmt.Printf("✓ ffmpeg is available\n")
+		}
 	}
 
 	// Create handlers

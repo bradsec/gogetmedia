@@ -819,7 +819,42 @@ func (th *TemplateHandler) ServeIndex(w http.ResponseWriter, r *http.Request) {
                             
                             <div class="md:col-span-2">
                                 <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">FFmpeg Path</label>
-                                <input v-model="settings.ffmpeg_path" type="text" class="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:text-white transition-colors" required>
+                                <div class="flex space-x-3">
+                                    <input v-model="settings.ffmpeg_path" type="text" class="flex-1 px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:text-white transition-colors" required>
+                                    <button type="button" @click="checkFfmpeg" :disabled="isCheckingFfmpeg" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-3 rounded-xl text-sm font-medium transition-colors duration-200 disabled:opacity-50 whitespace-nowrap">
+                                        {{ isCheckingFfmpeg ? 'Checking...' : 'Check ffmpeg' }}
+                                    </button>
+                                </div>
+                                
+                                <!-- ffmpeg Status Display -->
+                                <div v-if="ffmpegInfo" class="mt-3 p-4 rounded-lg border" :class="ffmpegInfo.available ? 'bg-green-50 dark:bg-green-900 border-green-200 dark:border-green-700' : 'bg-red-50 dark:bg-red-900 border-red-200 dark:border-red-700'">
+                                    <div class="flex items-center space-x-3">
+                                        <svg class="w-5 h-5" :class="ffmpegInfo.available ? 'text-green-600' : 'text-red-600'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path v-if="ffmpegInfo.available" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                            <path v-else stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"/>
+                                        </svg>
+                                        <div>
+                                            <div :class="ffmpegInfo.available ? 'text-green-800 dark:text-green-200' : 'text-red-800 dark:text-red-200'" class="font-medium text-sm">
+                                                {{ ffmpegInfo.available ? 'ffmpeg is available!' : 'ffmpeg not found!' }}
+                                            </div>
+                                            <div v-if="ffmpegInfo.version" :class="ffmpegInfo.available ? 'text-green-700 dark:text-green-300' : 'text-red-700 dark:text-red-300'" class="text-xs mt-1">
+                                                Version: {{ ffmpegInfo.version }}
+                                            </div>
+                                            <div v-if="ffmpegInfo.actual_path && ffmpegInfo.actual_path !== ffmpegInfo.configured_path" class="flex items-center space-x-1 text-amber-700 dark:text-amber-300 text-xs mt-1">
+                                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"/>
+                                                </svg>
+                                                <span>Using system ffmpeg instead of configured path</span>
+                                            </div>
+                                            <div v-if="ffmpegInfo.actual_path" :class="ffmpegInfo.available ? 'text-green-700 dark:text-green-300' : 'text-red-700 dark:text-red-300'" class="text-xs mt-1">
+                                                Found at: {{ ffmpegInfo.actual_path }}
+                                            </div>
+                                            <div v-if="!ffmpegInfo.available" :class="'text-red-700 dark:text-red-300'" class="text-xs mt-1">
+                                                Please ensure ffmpeg is installed and the path is correct.
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                             
                             <div>
@@ -945,6 +980,8 @@ func (th *TemplateHandler) ServeIndex(w http.ResponseWriter, r *http.Request) {
                     isCheckingUpdates: false,
                     isUpdating: false,
                     updateInfo: null,
+                    isCheckingFfmpeg: false,
+                    ffmpegInfo: null,
                     settings: {
                         download_path: '',
                         max_concurrent_downloads: 3,
@@ -1593,6 +1630,22 @@ func (th *TemplateHandler) ServeIndex(w http.ResponseWriter, r *http.Request) {
                             this.statusMessage = null;
                         }, 5000);
                     }
+                },
+
+                async checkFfmpeg() {
+                    this.isCheckingFfmpeg = true;
+                    try {
+                        const response = await fetch('/api/ffmpeg/check');
+                        if (response.ok) {
+                            this.ffmpegInfo = await response.json();
+                        } else {
+                            console.error('Failed to check ffmpeg');
+                        }
+                    } catch (error) {
+                        console.error('Failed to check ffmpeg:', error);
+                    } finally {
+                        this.isCheckingFfmpeg = false;
+                    }
                 }
             },
             
@@ -1602,8 +1655,9 @@ func (th *TemplateHandler) ServeIndex(w http.ResponseWriter, r *http.Request) {
                 this.loadSettings();
                 this.loadVersions();
                 
-                // Check for yt-dlp updates on app load
+                // Check for yt-dlp updates and ffmpeg on app load
                 this.checkForUpdates();
+                this.checkFfmpeg();
                 
                 // Poll for updates every 2 seconds
                 setInterval(() => {

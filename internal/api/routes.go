@@ -33,6 +33,7 @@ func SetupRoutes(handler *Handler, assetsFS fs.FS) *mux.Router {
 	api.HandleFunc("/validate", handler.ValidateURL).Methods("POST")
 	api.HandleFunc("/yt-dlp/version", handler.GetUpdateInfo).Methods("GET")
 	api.HandleFunc("/yt-dlp/update", handler.UpdateYtDlp).Methods("POST")
+	api.HandleFunc("/ffmpeg/check", handler.CheckFfmpeg).Methods("GET")
 	api.HandleFunc("/versions", handler.GetVersions).Methods("GET")
 
 	// Static files (legacy)

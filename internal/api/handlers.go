@@ -97,13 +97,20 @@ func (h *Handler) StartDownload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Convert to download type
+	// Check if ffmpeg is required and available
 	var downloadType core.DownloadType
 	if request.Type == "audio" {
 		downloadType = core.AudioDownload
 	} else {
 		downloadType = core.VideoDownload
 	}
+
+	if core.RequiresFfmpeg(downloadType, request.Format) && !core.CheckFfmpegAvailable(h.config.FfmpegPath) {
+		log.Printf("[API] StartDownload: ffmpeg required but not available for %s/%s", request.Type, request.Format)
+		http.Error(w, "ffmpeg is required for this download format but is not available. Please configure a valid ffmpeg path in settings.", http.StatusBadRequest)
+		return
+	}
+
 
 	// Create download request
 	req := core.DownloadRequest{
@@ -162,6 +169,13 @@ func (h *Handler) StartPlaylistDownload(w http.ResponseWriter, r *http.Request) 
 		downloadType = core.AudioDownload
 	} else {
 		downloadType = core.VideoDownload
+	}
+
+	// Check if ffmpeg is required and available
+	if core.RequiresFfmpeg(downloadType, request.Format) && !core.CheckFfmpegAvailable(h.config.FfmpegPath) {
+		log.Printf("[API] StartPlaylistDownload: ffmpeg required but not available for %s/%s", request.Type, request.Format)
+		http.Error(w, "ffmpeg is required for this download format but is not available. Please configure a valid ffmpeg path in settings.", http.StatusBadRequest)
+		return
 	}
 
 	// Create download request
@@ -604,6 +618,42 @@ func (h *Handler) GetVersions(w http.ResponseWriter, r *http.Request) {
 	versions := core.GetVersionInfo(h.config.YtDlpPath, h.config.FfmpegPath)
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(versions)
+}
+
+func (h *Handler) CheckFfmpeg(w http.ResponseWriter, r *http.Request) {
+	configuredPath := h.config.FfmpegPath
+	var version string
+	var actualPath string
+	var available bool
+	
+	// Check the configured path first
+	if core.IsCommandAvailable(configuredPath) {
+		available = true
+		actualPath = configuredPath
+	} else if core.IsCommandAvailable("ffmpeg") {
+		// Found in system PATH
+		available = true
+		actualPath = "ffmpeg (system PATH)"
+	} else {
+		available = false
+		actualPath = configuredPath
+	}
+	
+	if available {
+		versions := core.GetVersionInfo(h.config.YtDlpPath, h.config.FfmpegPath)
+		version = versions.FfmpegVersion
+	}
+	
+	response := map[string]interface{}{
+		"available":       available,
+		"version":         version,
+		"configured_path": configuredPath,
+		"actual_path":     actualPath,
+		"path":            actualPath, // For backward compatibility
+	}
+	
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
 }
 
 func (h *Handler) DownloadFile(w http.ResponseWriter, r *http.Request) {
