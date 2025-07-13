@@ -33,7 +33,6 @@ A cross-platform Go-based web application for downloading videos and audio from 
 
 ### First Run
 - The application will automatically download yt-dlp on first run
-- It will check for ffmpeg availability (optional but recommended)
 - Access the web interface at `http://localhost:8080`
 
 ## Command Line Options
