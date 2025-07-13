@@ -17,6 +17,8 @@ A cross-platform Go-based web application for downloading videos and audio from 
 
 ### Make sure FFMPEG is already installed and ideally in system PATH, or set in app settings. 
 
+### Use one of the pre-built binaries (macOS, Windows, and Linux available) from the RELEASES section to get up and running quickly, otherwise build and run as per instructions below.
+
 1. **Clone and build:**
    ```bash
    git clone https://github.com/youruser/gogetmedia.git
@@ -26,7 +28,7 @@ A cross-platform Go-based web application for downloading videos and audio from 
 
 2. **Run the application:**
    ```bash
-   ./gogetmedia
+   ./gogetmedia (mac/linux) or gogetmedia.exe (Windows)
    ```
 
 ### First Run
