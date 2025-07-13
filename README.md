@@ -15,6 +15,8 @@ A cross-platform Go-based web application for downloading videos and audio from 
 
 ## Installation
 
+### Make sure FFMPEG is already installed and ideally in system PATH, or set in app settings. 
+
 1. **Clone and build:**
    ```bash
    git clone https://github.com/youruser/gogetmedia.git
