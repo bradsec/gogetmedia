@@ -1,0 +1,120 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom styles for GoGetMedia */
+.gradient-bg {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.card-shadow {
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    transition: all 0.3s ease;
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+}
+
+.section-header {
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.section-header:hover {
+    transform: translateY(-1px);
+}
+
+.accordion-content {
+    transition: max-height 0.3s ease, opacity 0.3s ease;
+    overflow: hidden;
+}
+
+.accordion-collapsed {
+    max-height: 0;
+    opacity: 0;
+}
+
+.accordion-expanded {
+    max-height: 2000px;
+    opacity: 1;
+}
+
+.download-item {
+    transition: all 0.2s ease;
+}
+
+.download-item:hover {
+    transform: translateY(-1px);
+}
+
+.progress-bar {
+    height: 8px;
+    background: #e5e7eb;
+    border-radius: 4px;
+    overflow: hidden;
+    margin: 8px 0;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+    transition: width 0.3s ease;
+    border-radius: 4px;
+}
+
+/* Status badges */
+.status-badge {
+    display: inline-block;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.status-queued {
+    background: #64748b;
+    color: white;
+}
+
+.status-downloading {
+    background: #3b82f6;
+    color: white;
+}
+
+.status-post-processing {
+    background: #8b5cf6;
+    color: white;
+}
+
+.status-completed {
+    background: #10b981;
+    color: white;
+}
+
+.status-failed {
+    background: #ef4444;
+    color: white;
+}
+
+.status-cancelled {
+    background: #6b7280;
+    color: white;
+}
+
+.status-paused {
+    background: #f59e0b;
+    color: white;
+}
+
+.status-already-exists {
+    background: #84cc16;
+    color: white;
+}

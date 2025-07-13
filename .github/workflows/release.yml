@@ -1,0 +1,58 @@
+name: Go Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.5'
+
+      - name: Cache Go modules
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Install dependencies
+        run: go mod download
+
+      - name: Build binaries for multiple platforms
+        run: |
+          GOOS=linux GOARCH=amd64 go build -o gogetmedia-linux-amd64 ./cmd/gogetmedia
+          GOOS=windows GOARCH=amd64 go build -o gogetmedia-windows-amd64.exe ./cmd/gogetmedia
+          GOOS=darwin GOARCH=amd64 go build -o gogetmedia-darwin-amd64 ./cmd/gogetmedia
+
+      - name: Create Release and Upload Assets
+        uses: softprops/action-gh-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          files: |
+            gogetmedia-linux-amd64
+            gogetmedia-windows-amd64.exe
+            gogetmedia-darwin-amd64
+
+      - name: Add release description
+        run: |
+          RELEASE_TAG="${GITHUB_REF#refs/tags/}"
+          curl -s -X PATCH \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -d "{\"body\":\"Release v${RELEASE_TAG} of the gogetmedia project. See the binaries attached.\"}" \
+            "https://api.github.com/repos/${{ github.repository }}/releases/tags/${RELEASE_TAG}"

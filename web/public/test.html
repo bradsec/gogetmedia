@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>API Test</title>
+</head>
+<body>
+    <h1>API Test</h1>
+    <button onclick="testConfig()">Test Config</button>
+    <button onclick="testUpdate()">Test Update</button>
+    <button onclick="testDownload()">Test Download</button>
+    <div id="result"></div>
+    
+    <script>
+        async function testConfig() {
+            try {
+                const response = await fetch('/api/config');
+                const data = await response.json();
+                document.getElementById('result').innerHTML = '<h3>Config:</h3><pre>' + JSON.stringify(data, null, 2) + '</pre>';
+            } catch (error) {
+                document.getElementById('result').innerHTML = '<h3>Error:</h3>' + error.message;
+            }
+        }
+        
+        async function testUpdate() {
+            try {
+                const response = await fetch('/api/yt-dlp/version');
+                const data = await response.json();
+                document.getElementById('result').innerHTML = '<h3>Update Info:</h3><pre>' + JSON.stringify(data, null, 2) + '</pre>';
+            } catch (error) {
+                document.getElementById('result').innerHTML = '<h3>Error:</h3>' + error.message;
+            }
+        }
+        
+        async function testDownload() {
+            try {
+                // First validate the URL
+                const validateResponse = await fetch('/api/validate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'
+                    })
+                });
+                const validateData = await validateResponse.json();
+                
+                if (!validateData.valid) {
+                    document.getElementById('result').innerHTML = '<h3>URL Validation Failed:</h3><pre>' + JSON.stringify(validateData, null, 2) + '</pre>';
+                    return;
+                }
+                
+                // If validation passed, start download
+                const response = await fetch('/api/downloads', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+                        type: 'video',
+                        quality: 'best',
+                        format: 'mp4'
+                    })
+                });
+                const data = await response.json();
+                document.getElementById('result').innerHTML = '<h3>Download:</h3><pre>' + JSON.stringify(data, null, 2) + '</pre>';
+                
+                // Poll for progress
+                pollProgress(data.id);
+            } catch (error) {
+                document.getElementById('result').innerHTML = '<h3>Error:</h3>' + error.message;
+            }
+        }
+        
+        async function pollProgress(downloadId) {
+            const interval = setInterval(async () => {
+                try {
+                    const response = await fetch('/api/downloads');
+                    const downloads = await response.json();
+                    const download = downloads.find(d => d.id === downloadId);
+                    
+                    if (download) {
+                        const progressDiv = document.getElementById('progress') || createProgressDiv();
+                        progressDiv.innerHTML = `
+                            <h4>Download Progress:</h4>
+                            <div>Status: ${download.status}</div>
+                            <div>Progress: ${download.progress.percentage}%</div>
+                            <div>Speed: ${download.progress.speed}</div>
+                            <div>ETA: ${download.progress.eta}</div>
+                        `;
+                        
+                        if (download.status === 'completed' || download.status === 'failed' || download.status === 'cancelled') {
+                            clearInterval(interval);
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error polling progress:', error);
+                }
+            }, 1000);
+        }
+        
+        function createProgressDiv() {
+            const progressDiv = document.createElement('div');
+            progressDiv.id = 'progress';
+            document.body.appendChild(progressDiv);
+            return progressDiv;
+        }
+    </script>
+</body>
+</html>

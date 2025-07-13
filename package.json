@@ -1,0 +1,14 @@
+{
+  "name": "gogetmedia",
+  "version": "1.0.0",
+  "description": "A cross-platform web application for downloading videos and audio using yt-dlp",
+  "scripts": {
+    "build-css": "tailwindcss -i ./input.css -o ./internal/ui/assets/css/tailwind.min.css --minify",
+    "watch-css": "tailwindcss -i ./input.css -o ./internal/ui/assets/css/tailwind.min.css --watch",
+    "build": "npm run build-css && go build -ldflags='-s -w' -o gogetmedia cmd/gogetmedia/main.go",
+    "build-production": "npm run build-css && go build -ldflags='-s -w' -o gogetmedia cmd/gogetmedia/main.go"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.4.17"
+  }
+}
