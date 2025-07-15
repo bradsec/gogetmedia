@@ -233,7 +233,7 @@ func (h *Handler) StartFirstVideoDownload(w http.ResponseWriter, r *http.Request
 	}
 
 	// Create downloader to get playlist items
-	downloader := core.NewDownloader(h.config.YtDlpPath, h.config.FfmpegPath)
+	downloader := core.NewDownloader(h.config.YtDlpPath, h.config.FfmpegPath, h.config.EnableHardwareAccel, h.config.OptimizeForLowPower)
 	playlistItems, err := downloader.GetPlaylistItems(request.URL)
 	if err != nil {
 		log.Printf("[API] StartFirstVideoDownload: Failed to get playlist items: %v", err)
@@ -306,7 +306,7 @@ func (h *Handler) ValidateURL(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create a temporary downloader to validate the URL
-	downloader := core.NewDownloader(h.config.YtDlpPath, h.config.FfmpegPath)
+	downloader := core.NewDownloader(h.config.YtDlpPath, h.config.FfmpegPath, h.config.EnableHardwareAccel, h.config.OptimizeForLowPower)
 
 	// Check if this is a playlist URL
 	isPlaylist := downloader.IsPlaylistURL(request.URL)
@@ -706,25 +706,14 @@ func (h *Handler) DownloadFile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Set headers for download
-	// Use the original title if available, otherwise use the actual filename
-	var downloadFilename string
-	if download.Title != "" && download.Title != download.URL {
-		// Use the original title with the correct extension, properly sanitized
-		ext := filepath.Ext(download.OutputPath)
-		// Use the same sanitization function as the download process
-		cleanTitle := core.SanitizeFilename(download.Title)
-		downloadFilename = cleanTitle + ext
-		log.Printf("[API] Using sanitized title as filename: %s -> %s", download.Title, downloadFilename)
-	} else {
-		// Fall back to the actual filename
-		downloadFilename = filepath.Base(download.OutputPath)
-		log.Printf("[API] Using base filename: %s", downloadFilename)
-	}
+	// Use the actual stored filename (already sanitized)
+	downloadFilename := filepath.Base(download.OutputPath)
+	log.Printf("[API] Using actual stored filename: %s (from OutputPath: %s)", downloadFilename, download.OutputPath)
 
 	log.Printf("[API] Final download filename: %s (Title: '%s', OutputPath: '%s')", downloadFilename, download.Title, download.OutputPath)
 
-	// URL encode the filename to handle special characters
-	encodedFilename := url.QueryEscape(downloadFilename)
+	// URL encode the filename to handle special characters (use PathEscape for filenames, not QueryEscape)
+	encodedFilename := url.PathEscape(downloadFilename)
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"; filename*=UTF-8''%s", downloadFilename, encodedFilename))
 	w.Header().Set("Content-Type", "application/octet-stream")
 	w.Header().Set("Content-Length", fmt.Sprintf("%d", fileInfo.Size()))

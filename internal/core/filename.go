@@ -2,59 +2,40 @@ package core
 
 import (
 	"regexp"
-	"runtime"
 	"strings"
 	"unicode"
 )
 
-// SanitizeFilename cleans a filename by removing special characters, emojis,
-// converting to lowercase, and replacing spaces with underscores
+// SanitizeFilename cleans a filename by keeping only alphanumeric characters and spaces
 func SanitizeFilename(filename string) string {
-	// Remove file extension temporarily
+	// Remove file extension temporarily (only if it's a real extension)
 	ext := ""
 	if lastDot := strings.LastIndex(filename, "."); lastDot != -1 {
-		ext = filename[lastDot:]
-		filename = filename[:lastDot]
+		potentialExt := filename[lastDot:]
+		// Only treat it as an extension if it's a common file extension
+		// and doesn't contain spaces (real extensions don't have spaces)
+		if !strings.Contains(potentialExt, " ") && len(potentialExt) <= 6 {
+			ext = potentialExt
+			filename = filename[:lastDot]
+		}
 	}
 
-	// Remove emojis and other unicode symbols
-	filename = removeEmojis(filename)
-
-	// Remove special characters (Windows-compatible)
-	var reg *regexp.Regexp
-	if runtime.GOOS == "windows" {
-		// Windows forbidden characters: < > : " | ? * \ / and control characters
-		reg = regexp.MustCompile(`[<>:"/\\|?*\x00-\x1f]`)
-		filename = reg.ReplaceAllString(filename, "")
-	} else {
-		// Unix-like systems: remove most special characters except spaces, hyphens, underscores
-		reg = regexp.MustCompile(`[^\w\s\-]`)
-		filename = reg.ReplaceAllString(filename, "")
+	// Keep only alphanumeric characters and spaces
+	// Remove all emojis, symbols, and special characters
+	var result strings.Builder
+	for _, r := range filename {
+		if unicode.IsLetter(r) || unicode.IsDigit(r) || r == ' ' {
+			result.WriteRune(r)
+		}
 	}
+	filename = result.String()
 
 	// Replace multiple spaces with single space
-	reg = regexp.MustCompile(`\s+`)
+	reg := regexp.MustCompile(`\s+`)
 	filename = reg.ReplaceAllString(filename, " ")
 
-	// Trim spaces
+	// Trim spaces from beginning and end
 	filename = strings.TrimSpace(filename)
-
-	// Convert to lowercase
-	filename = strings.ToLower(filename)
-
-	// Replace spaces with underscores
-	filename = strings.ReplaceAll(filename, " ", "_")
-
-	// Replace multiple underscores with single underscore
-	reg = regexp.MustCompile(`_{2,}`)
-	filename = reg.ReplaceAllString(filename, "_")
-
-	// Remove leading/trailing underscores
-	filename = strings.Trim(filename, "_")
-
-	// Windows-specific sanitization (apply on all platforms for consistency)
-	// Remove trailing dots and spaces (Windows doesn't allow these)
-	filename = strings.TrimRight(filename, ". ")
 
 	// Check for Windows reserved names
 	filename = sanitizeWindowsReservedNames(filename)
@@ -62,6 +43,8 @@ func SanitizeFilename(filename string) string {
 	// Ensure filename doesn't exceed reasonable length limits
 	if len(filename) > 200 { // Leave room for extension
 		filename = filename[:200]
+		// Make sure we don't end with a space after truncation
+		filename = strings.TrimRight(filename, " ")
 	}
 
 	// If filename is empty after sanitization, use a default
@@ -84,7 +67,7 @@ func sanitizeWindowsReservedNames(filename string) string {
 	// Check if filename (without extension) matches any reserved name
 	for _, reserved := range windowsReservedNames {
 		if strings.EqualFold(filename, reserved) {
-			return filename + "_file"
+			return filename + " file"
 		}
 	}
 

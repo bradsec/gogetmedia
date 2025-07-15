@@ -93,7 +93,7 @@ func main() {
 	}
 
 	// Create downloader and manager
-	downloader := core.NewDownloader(cfg.YtDlpPath, cfg.FfmpegPath)
+	downloader := core.NewDownloader(cfg.YtDlpPath, cfg.FfmpegPath, cfg.EnableHardwareAccel, cfg.OptimizeForLowPower)
 	downloadManager := manager.NewDownloadManager(downloader, cfg.MaxConcurrentDownloads, cfg.DownloadPath, cfg)
 
 	// Create updater
@@ -101,12 +101,20 @@ func main() {
 
 	// Check for yt-dlp and auto-download if needed
 	fmt.Printf("Checking yt-dlp availability...\n")
+	fmt.Printf("yt-dlp path: %s\n", cfg.YtDlpPath)
+	
+	// Debug: Show current working directory
+	if wd, err := os.Getwd(); err == nil {
+		fmt.Printf("Current working directory: %s\n", wd)
+	}
+	
 	if _, err := os.Stat(cfg.YtDlpPath); os.IsNotExist(err) {
-		fmt.Printf("yt-dlp not found, downloading...\n")
+		fmt.Printf("yt-dlp not found at %s, downloading...\n", cfg.YtDlpPath)
 		if err := updater.Update(); err != nil {
 			fmt.Printf("Warning: Failed to download yt-dlp: %v\n", err)
+			fmt.Printf("You may need to manually download yt-dlp and place it at: %s\n", cfg.YtDlpPath)
 		} else {
-			fmt.Printf("✓ yt-dlp downloaded successfully\n")
+			fmt.Printf("✓ yt-dlp downloaded successfully to %s\n", cfg.YtDlpPath)
 		}
 	} else {
 		// Check for updates

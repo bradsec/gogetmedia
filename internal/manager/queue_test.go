@@ -17,7 +17,7 @@ func TestNewDownloadManager(t *testing.T) {
 	}
 	defer os.RemoveAll(tempDir)
 
-	downloader := core.NewDownloader("yt-dlp", "ffmpeg")
+	downloader := core.NewDownloader("yt-dlp", "ffmpeg", false, false)
 	cfg := &config.Config{
 		CompletedFileExpiryHours: 0, // Disable auto-expiry for tests
 	}
@@ -47,7 +47,7 @@ func TestAddDownload(t *testing.T) {
 	}
 	defer os.RemoveAll(tempDir)
 
-	downloader := core.NewDownloader("yt-dlp", "ffmpeg")
+	downloader := core.NewDownloader("yt-dlp", "ffmpeg", false, false)
 	cfg := &config.Config{
 		CompletedFileExpiryHours: 0,
 	}
@@ -89,7 +89,7 @@ func TestGetDownload(t *testing.T) {
 	}
 	defer os.RemoveAll(tempDir)
 
-	downloader := core.NewDownloader("yt-dlp", "ffmpeg")
+	downloader := core.NewDownloader("yt-dlp", "ffmpeg", false, false)
 	cfg := &config.Config{
 		CompletedFileExpiryHours: 0,
 	}
@@ -134,7 +134,7 @@ func TestCancelDownload(t *testing.T) {
 	}
 	defer os.RemoveAll(tempDir)
 
-	downloader := core.NewDownloader("yt-dlp", "ffmpeg")
+	downloader := core.NewDownloader("yt-dlp", "ffmpeg", false, false)
 	cfg := &config.Config{
 		CompletedFileExpiryHours: 0,
 	}
@@ -179,7 +179,7 @@ func TestRemoveDownload(t *testing.T) {
 	}
 	defer os.RemoveAll(tempDir)
 
-	downloader := core.NewDownloader("yt-dlp", "ffmpeg")
+	downloader := core.NewDownloader("yt-dlp", "ffmpeg", false, false)
 	cfg := &config.Config{
 		CompletedFileExpiryHours: 0,
 	}
@@ -220,7 +220,7 @@ func TestProgressChannel(t *testing.T) {
 	}
 	defer os.RemoveAll(tempDir)
 
-	downloader := core.NewDownloader("yt-dlp", "ffmpeg")
+	downloader := core.NewDownloader("yt-dlp", "ffmpeg", false, false)
 	cfg := &config.Config{
 		CompletedFileExpiryHours: 0,
 	}
@@ -277,7 +277,7 @@ func TestCheckFileExists(t *testing.T) {
 	}
 	file.Close()
 
-	downloader := core.NewDownloader("yt-dlp", "ffmpeg")
+	downloader := core.NewDownloader("yt-dlp", "ffmpeg", false, false)
 	cfg := &config.Config{
 		CompletedFileExpiryHours: 0,
 	}
@@ -308,7 +308,7 @@ func TestExtractTitleFromPath(t *testing.T) {
 	}
 	defer os.RemoveAll(tempDir)
 
-	downloader := core.NewDownloader("yt-dlp", "ffmpeg")
+	downloader := core.NewDownloader("yt-dlp", "ffmpeg", false, false)
 	cfg := &config.Config{
 		CompletedFileExpiryHours: 0,
 	}
@@ -346,7 +346,7 @@ func TestShutdown(t *testing.T) {
 	}
 	defer os.RemoveAll(tempDir)
 
-	downloader := core.NewDownloader("yt-dlp", "ffmpeg")
+	downloader := core.NewDownloader("yt-dlp", "ffmpeg", false, false)
 	cfg := &config.Config{
 		CompletedFileExpiryHours: 0,
 	}

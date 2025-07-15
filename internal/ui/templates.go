@@ -26,7 +26,7 @@ func (th *TemplateHandler) ServeIndex(w http.ResponseWriter, r *http.Request) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GoGetMedia - A WebUI for yt-dlp</title>
     <link rel="stylesheet" href="/assets/css/tailwind.min.css">
-    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="/assets/js/vue.min.js"></script>
     <style>
         .gradient-bg {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);

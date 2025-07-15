@@ -898,7 +898,7 @@ func (dm *DownloadManager) UpdateConfig(newConfig *config.Config) {
 	dm.outputDir = newConfig.DownloadPath
 
 	// Create a new downloader with updated paths
-	dm.downloader = core.NewDownloader(newConfig.YtDlpPath, newConfig.FfmpegPath)
+	dm.downloader = core.NewDownloader(newConfig.YtDlpPath, newConfig.FfmpegPath, newConfig.EnableHardwareAccel, newConfig.OptimizeForLowPower)
 
 	log.Printf("[MANAGER] Config updated: MaxConcurrent %d -> %d, OutputDir -> %s",
 		oldMaxConcurrent, dm.maxConcurrent, dm.outputDir)

@@ -18,6 +18,8 @@ type Config struct {
 	DefaultAudioFormat       string `json:"default_audio_format"`
 	VerboseLogging           bool   `json:"verbose_logging"`
 	CompletedFileExpiryHours int    `json:"completed_file_expiry_hours"`
+	EnableHardwareAccel      bool   `json:"enable_hardware_acceleration"`
+	OptimizeForLowPower      bool   `json:"optimize_for_low_power"`
 }
 
 func DefaultConfig() *Config {
@@ -34,23 +36,48 @@ func DefaultConfig() *Config {
 		DefaultAudioFormat:       "mp3",
 		VerboseLogging:           false,
 		CompletedFileExpiryHours: 72, // 72 hours default
+		EnableHardwareAccel:      true,
+		OptimizeForLowPower:      false,
 	}
 }
 
 func getDefaultYtDlpPath() string {
-	// Get current working directory
-	if wd, err := os.Getwd(); err == nil {
-		if runtime.GOOS == "windows" {
-			return filepath.Join(wd, "assets", "yt-dlp", "yt-dlp.exe")
-		}
-		return filepath.Join(wd, "assets", "yt-dlp", "yt-dlp")
-	}
-
-	// Fallback to relative path
+	var binaryName string
 	if runtime.GOOS == "windows" {
-		return filepath.Join("assets", "yt-dlp", "yt-dlp.exe")
+		binaryName = "yt-dlp.exe"
+	} else {
+		binaryName = "yt-dlp"
 	}
-	return filepath.Join("assets", "yt-dlp", "yt-dlp")
+	
+	// Try to get the executable's directory first
+	if execPath, err := os.Executable(); err == nil {
+		execDir := filepath.Dir(execPath)
+		ytdlpPath := filepath.Join(execDir, "assets", "yt-dlp", binaryName)
+		if _, err := os.Stat(ytdlpPath); err == nil {
+			return ytdlpPath
+		}
+	}
+	
+	// Try current working directory
+	if wd, err := os.Getwd(); err == nil {
+		ytdlpPath := filepath.Join(wd, "assets", "yt-dlp", binaryName)
+		if _, err := os.Stat(ytdlpPath); err == nil {
+			return ytdlpPath
+		}
+	}
+	
+	// Try relative path from working directory
+	relPath := filepath.Join("assets", "yt-dlp", binaryName)
+	if _, err := os.Stat(relPath); err == nil {
+		// Convert to absolute path if possible
+		if absPath, err := filepath.Abs(relPath); err == nil {
+			return absPath
+		}
+		return relPath
+	}
+	
+	// Last resort - return the relative path (updater will handle download)
+	return relPath
 }
 
 func getDefaultFfmpegPath() string {
@@ -108,6 +135,14 @@ func (c *Config) Validate() error {
 
 	if c.MaxConcurrentDownloads <= 0 || c.MaxConcurrentDownloads > 10 {
 		return fmt.Errorf("max_concurrent_downloads must be between 1 and 10")
+	}
+
+	if c.DefaultVideoFormat == "" {
+		return fmt.Errorf("default_video_format cannot be empty")
+	}
+
+	if c.DefaultAudioFormat == "" {
+		return fmt.Errorf("default_audio_format cannot be empty")
 	}
 
 	if c.Port <= 0 || c.Port > 65535 {

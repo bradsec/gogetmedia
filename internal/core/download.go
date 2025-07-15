@@ -73,14 +73,18 @@ type Download struct {
 }
 
 type Downloader struct {
-	ytDlpPath  string
-	ffmpegPath string
+	ytDlpPath           string
+	ffmpegPath          string
+	enableHardwareAccel bool
+	optimizeForLowPower bool
 }
 
-func NewDownloader(ytDlpPath, ffmpegPath string) *Downloader {
+func NewDownloader(ytDlpPath, ffmpegPath string, enableHardwareAccel, optimizeForLowPower bool) *Downloader {
 	return &Downloader{
-		ytDlpPath:  ytDlpPath,
-		ffmpegPath: ffmpegPath,
+		ytDlpPath:           ytDlpPath,
+		ffmpegPath:          ffmpegPath,
+		enableHardwareAccel: enableHardwareAccel,
+		optimizeForLowPower: optimizeForLowPower,
 	}
 }
 
@@ -159,6 +163,12 @@ func (d *Downloader) Download(ctx context.Context, req DownloadRequest, progress
 
 	download.Status = StatusDownloading
 	log.Printf("[DOWNLOAD] %s: Starting download", download.ID)
+	log.Printf("[DOWNLOAD] %s: yt-dlp path: %s", download.ID, d.ytDlpPath)
+	
+	// Check if yt-dlp binary exists and is executable
+	if _, err := os.Stat(d.ytDlpPath); os.IsNotExist(err) {
+		return nil, fmt.Errorf("yt-dlp binary not found at %s", d.ytDlpPath)
+	}
 
 	cmd := exec.CommandContext(ctx, d.ytDlpPath, args...)
 	cmd.Dir = req.OutputDir
@@ -401,6 +411,64 @@ func (d *Downloader) buildYtDlpArgs(req DownloadRequest, download *Download) []s
 	return args
 }
 
+// getHardwareAcceleration detects available hardware acceleration options
+func (d *Downloader) getHardwareAcceleration() string {
+	// Return empty if hardware acceleration is disabled
+	if !d.enableHardwareAccel {
+		return ""
+	}
+	
+	// Check for NVIDIA NVENC support
+	if d.checkHardwareSupport("h264_nvenc") {
+		return "-hwaccel cuda"
+	}
+	
+	// Check for Intel QuickSync support
+	if d.checkHardwareSupport("h264_qsv") {
+		return "-hwaccel qsv"
+	}
+	
+	// Check for AMD/Intel VAAPI support (Linux)
+	if d.checkHardwareSupport("h264_vaapi") {
+		return "-hwaccel vaapi -hwaccel_device /dev/dri/renderD128"
+	}
+	
+	// No hardware acceleration available
+	return ""
+}
+
+// getHardwareEncoder returns the appropriate hardware encoder
+func (d *Downloader) getHardwareEncoder() string {
+	// Check for NVIDIA NVENC support
+	if d.checkHardwareSupport("h264_nvenc") {
+		return "h264_nvenc"
+	}
+	
+	// Check for Intel QuickSync support  
+	if d.checkHardwareSupport("h264_qsv") {
+		return "h264_qsv"
+	}
+	
+	// Check for AMD/Intel VAAPI support (Linux)
+	if d.checkHardwareSupport("h264_vaapi") {
+		return "h264_vaapi"
+	}
+	
+	// Fallback to software encoder
+	return "libx264"
+}
+
+// checkHardwareSupport checks if a hardware encoder is available
+func (d *Downloader) checkHardwareSupport(encoder string) bool {
+	cmd := exec.Command(d.ffmpegPath, "-encoders")
+	output, err := cmd.Output()
+	if err != nil {
+		return false
+	}
+	
+	return strings.Contains(string(output), encoder)
+}
+
 // buildAudioFFmpegArgs creates optimized FFmpeg arguments for audio processing
 // RequiresFfmpeg checks if the given download type and format require ffmpeg for post-processing
 func RequiresFfmpeg(downloadType DownloadType, format string) bool {
@@ -422,95 +490,143 @@ func RequiresFfmpeg(downloadType DownloadType, format string) bool {
 }
 
 func (d *Downloader) buildAudioFFmpegArgs(format string) string {
-	baseArgs := "-progress pipe:2 -nostats -loglevel info"
+	baseArgs := "-progress pipe:2 -nostats -loglevel error"
 
 	switch format {
 	case "mp3":
-		// High-quality MP3 with cross-platform compatibility
-		// VBR quality 0 (highest quality), 48kHz sample rate, stereo
-		return fmt.Sprintf("-c:a libmp3lame -q:a 0 -ac 2 -ar 48000 %s", baseArgs)
+		// Optimized MP3 - good quality, faster encoding
+		// VBR quality 2 (very good quality), standard sample rate
+		return fmt.Sprintf("-c:a libmp3lame -q:a 2 -ac 2 -ar 44100 %s", baseArgs)
 
 	case "m4a":
-		// AAC in M4A container - excellent quality and compatibility
-		// High bitrate AAC, 48kHz sample rate, stereo
-		return fmt.Sprintf("-c:a aac -b:a 256k -ac 2 -ar 48000 %s", baseArgs)
+		// Optimized AAC - good quality, faster encoding
+		// Lower bitrate but still good quality, standard sample rate
+		return fmt.Sprintf("-c:a aac -b:a 128k -ac 2 -ar 44100 %s", baseArgs)
 
 	case "wav":
-		// Uncompressed WAV - maximum quality but large file size
-		// 16-bit PCM, 48kHz sample rate, stereo for broad compatibility
-		return fmt.Sprintf("-c:a pcm_s16le -ac 2 -ar 48000 %s", baseArgs)
+		// Standard WAV - no unnecessary processing
+		// 16-bit PCM, standard sample rate
+		return fmt.Sprintf("-c:a pcm_s16le -ac 2 -ar 44100 %s", baseArgs)
 
 	case "flac":
-		// Lossless FLAC compression - perfect quality with smaller size than WAV
-		// Compression level 5 (good balance), 48kHz sample rate, stereo
-		return fmt.Sprintf("-c:a flac -compression_level 5 -ac 2 -ar 48000 %s", baseArgs)
+		// Faster FLAC encoding - lower compression for speed
+		// Standard sample rate, compression level 3 (faster)
+		return fmt.Sprintf("-c:a flac -compression_level 3 -ac 2 -ar 44100 %s", baseArgs)
 
 	default:
 		// Fallback to MP3 for unknown formats
-		return fmt.Sprintf("-c:a libmp3lame -q:a 2 -ac 2 -ar 48000 %s", baseArgs)
+		return fmt.Sprintf("-c:a libmp3lame -q:a 2 -ac 2 -ar 44100 %s", baseArgs)
 	}
 }
 
 // buildFFmpegArgs creates optimized FFmpeg arguments for cross-platform compatibility
 func (d *Downloader) buildFFmpegArgs(format string) string {
-	baseArgs := "-progress pipe:2 -nostats -loglevel info"
+	baseArgs := "-progress pipe:2 -nostats -loglevel error"
+	
+	// Check for hardware acceleration support
+	hwAccel := d.getHardwareAcceleration()
 
 	switch format {
 	case "mp4":
-		// H.264 + AAC - maximum compatibility across all platforms
-		// CRF 20 = high quality, preset medium = good speed/quality balance
-		// Profile baseline for maximum compatibility with older devices
-		// Level 4.0 supports up to 1080p, pix_fmt yuv420p for compatibility
+		// Optimized H.264 + AAC - good quality, faster encoding
+		// CRF 23 = balanced quality, preset fast = better speed
+		// Main profile for good compatibility, standard audio settings
 		// movflags +faststart = optimizes for streaming/web playback
-		return fmt.Sprintf("-c:v libx264 -crf 20 -preset medium -profile:v high -level:v 4.0 -pix_fmt yuv420p -c:a aac -b:a 192k -ac 2 -ar 48000 -movflags +faststart %s", baseArgs)
+		if hwAccel != "" {
+			return fmt.Sprintf("%s -c:v %s -crf 23 -preset fast -profile:v main -level:v 4.0 -pix_fmt yuv420p -c:a aac -b:a 128k -ac 2 -ar 44100 -movflags +faststart %s", hwAccel, d.getHardwareEncoder(), baseArgs)
+		}
+		return fmt.Sprintf("-c:v libx264 -crf 23 -preset fast -profile:v main -level:v 4.0 -pix_fmt yuv420p -c:a aac -b:a 128k -ac 2 -ar 44100 -movflags +faststart %s", baseArgs)
 
 	case "mkv":
-		// H.264 + AAC in MKV container - great compatibility and quality
-		// Same video settings as MP4 for consistency
-		return fmt.Sprintf("-c:v libx264 -crf 20 -preset medium -profile:v high -level:v 4.0 -pix_fmt yuv420p -c:a aac -b:a 192k -ac 2 -ar 48000 %s", baseArgs)
+		// Optimized H.264 + AAC in MKV container - faster encoding
+		// Same optimized settings as MP4 for consistency
+		return fmt.Sprintf("-c:v libx264 -crf 23 -preset fast -profile:v main -level:v 4.0 -pix_fmt yuv420p -c:a aac -b:a 128k -ac 2 -ar 44100 %s", baseArgs)
 
 	case "webm":
-		// VP9 + Opus - excellent quality and compression, supported by modern browsers
-		// CRF 25 for VP9 (equivalent to CRF 20 for H.264), 2-pass for better quality
-		// Speed 2 = good balance between encoding speed and compression
-		return fmt.Sprintf("-c:v libvpx-vp9 -crf 25 -b:v 0 -speed 2 -tile-columns 2 -threads 4 -row-mt 1 -c:a libopus -b:a 192k -ac 2 -ar 48000 %s", baseArgs)
+		// Optimized VP9 + Opus - faster encoding for low-power PCs
+		// CRF 30 for faster encoding, speed 4 = much faster
+		// Reduced threading overhead, simpler settings
+		return fmt.Sprintf("-c:v libvpx-vp9 -crf 30 -b:v 0 -speed 4 -threads 2 -c:a libopus -b:a 128k -ac 2 -ar 44100 %s", baseArgs)
 
 	case "avi":
-		// H.264 + AAC in AVI (for legacy compatibility)
-		// Use same settings as MP4 but without faststart flag
-		return fmt.Sprintf("-c:v libx264 -crf 20 -preset medium -profile:v high -level:v 4.0 -pix_fmt yuv420p -c:a aac -b:a 192k -ac 2 -ar 48000 %s", baseArgs)
+		// Optimized H.264 + AAC in AVI (for legacy compatibility)
+		// Use same optimized settings as MP4 but without faststart flag
+		return fmt.Sprintf("-c:v libx264 -crf 23 -preset fast -profile:v main -level:v 4.0 -pix_fmt yuv420p -c:a aac -b:a 128k -ac 2 -ar 44100 %s", baseArgs)
 
 	default:
-		// Fallback for any other format - use conservative H.264 + AAC
-		return fmt.Sprintf("-c:v libx264 -crf 22 -preset medium -pix_fmt yuv420p -c:a aac -b:a 192k -ac 2 -ar 48000 %s", baseArgs)
+		// Fallback for any other format - use optimized H.264 + AAC
+		return fmt.Sprintf("-c:v libx264 -crf 23 -preset fast -pix_fmt yuv420p -c:a aac -b:a 128k -ac 2 -ar 44100 %s", baseArgs)
 	}
 }
 
 func (d *Downloader) getVideoFormat(quality, format string) string {
+	// For low power optimization, prefer native formats to avoid conversion
+	codecFilter := ""
+	if d.optimizeForLowPower {
+		switch format {
+		case "mp4":
+			codecFilter = "[ext=mp4]/[vcodec^=avc1]/[vcodec^=h264]"
+		case "webm":
+			codecFilter = "[ext=webm]/[vcodec^=vp9]/[vcodec^=vp8]"
+		case "mkv":
+			codecFilter = "[ext=mkv]/[vcodec^=h264]"
+		}
+	}
+	
 	switch quality {
 	case "best":
 		// Get absolute best quality available - no format restrictions
+		if codecFilter != "" {
+			return fmt.Sprintf("bestvideo%s+bestaudio/best%s/bestvideo+bestaudio/best", codecFilter, codecFilter)
+		}
 		return "bestvideo+bestaudio/best"
 	case "worst":
 		// Get absolute best quality available with preferred codecs
+		if codecFilter != "" {
+			return fmt.Sprintf("worstvideo%s+worstaudio/worst%s/worstvideo+worstaudio/worst", codecFilter, codecFilter)
+		}
 		return "worstvideo+worstaudio/worst"
 	case "4K":
+		if codecFilter != "" {
+			return fmt.Sprintf("bestvideo[height<=2160]%s+bestaudio/best[height<=2160]%s/bestvideo[height<=2160]+bestaudio/best[height<=2160]", codecFilter, codecFilter)
+		}
 		return "bestvideo[height<=2160]+bestaudio/best[height<=2160]"
 	case "2K":
+		if codecFilter != "" {
+			return fmt.Sprintf("bestvideo[height<=1440]%s+bestaudio/best[height<=1440]%s/bestvideo[height<=1440]+bestaudio/best[height<=1440]", codecFilter, codecFilter)
+		}
 		return "bestvideo[height<=1440]+bestaudio/best[height<=1440]"
 	case "1080p":
+		if codecFilter != "" {
+			return fmt.Sprintf("bestvideo[height<=1080]%s+bestaudio/best[height<=1080]%s/bestvideo[height<=1080]+bestaudio/best[height<=1080]", codecFilter, codecFilter)
+		}
 		return "bestvideo[height<=1080]+bestaudio/best[height<=1080]"
 	case "720p":
+		if codecFilter != "" {
+			return fmt.Sprintf("bestvideo[height<=720]%s+bestaudio/best[height<=720]%s/bestvideo[height<=720]+bestaudio/best[height<=720]", codecFilter, codecFilter)
+		}
 		return "bestvideo[height<=720]+bestaudio/best[height<=720]"
 	case "480p":
+		if codecFilter != "" {
+			return fmt.Sprintf("bestvideo[height<=480]%s+bestaudio/best[height<=480]%s/bestvideo[height<=480]+bestaudio/best[height<=480]", codecFilter, codecFilter)
+		}
 		return "bestvideo[height<=480]+bestaudio/best[height<=480]"
 	case "360p":
+		if codecFilter != "" {
+			return fmt.Sprintf("bestvideo[height<=360]%s+bestaudio/best[height<=360]%s/bestvideo[height<=360]+bestaudio/best[height<=360]", codecFilter, codecFilter)
+		}
 		return "bestvideo[height<=360]+bestaudio/best[height<=360]"
 	default:
 		// Handle any other specific resolutions
 		if strings.HasSuffix(quality, "p") {
 			height := strings.TrimSuffix(quality, "p")
+			if codecFilter != "" {
+				return fmt.Sprintf("bestvideo[height<=%s]%s+bestaudio/best[height<=%s]%s/bestvideo[height<=%s]+bestaudio/best[height<=%s]", height, codecFilter, height, codecFilter, height, height)
+			}
 			return fmt.Sprintf("bestvideo[height<=%s]+bestaudio/best[height<=%s]", height, height)
+		}
+		if codecFilter != "" {
+			return fmt.Sprintf("bestvideo%s+bestaudio/best%s/bestvideo+bestaudio/best", codecFilter, codecFilter)
 		}
 		return "bestvideo+bestaudio/best"
 	}

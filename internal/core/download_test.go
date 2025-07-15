@@ -12,7 +12,7 @@ func TestNewDownloader(t *testing.T) {
 	ytDlpPath := "/usr/bin/yt-dlp"
 	ffmpegPath := "/usr/bin/ffmpeg"
 
-	downloader := NewDownloader(ytDlpPath, ffmpegPath)
+	downloader := NewDownloader(ytDlpPath, ffmpegPath, true, false)
 
 	if downloader.ytDlpPath != ytDlpPath {
 		t.Errorf("Expected ytDlpPath to be %s, got %s", ytDlpPath, downloader.ytDlpPath)
@@ -20,6 +20,12 @@ func TestNewDownloader(t *testing.T) {
 
 	if downloader.ffmpegPath != ffmpegPath {
 		t.Errorf("Expected ffmpegPath to be %s, got %s", ffmpegPath, downloader.ffmpegPath)
+	}
+	if downloader.enableHardwareAccel != true {
+		t.Errorf("Expected enableHardwareAccel to be true, got %v", downloader.enableHardwareAccel)
+	}
+	if downloader.optimizeForLowPower != false {
+		t.Errorf("Expected optimizeForLowPower to be false, got %v", downloader.optimizeForLowPower)
 	}
 }
 
@@ -38,7 +44,7 @@ func TestGenerateID(t *testing.T) {
 }
 
 func TestIsPlaylistURL(t *testing.T) {
-	downloader := NewDownloader("", "")
+	downloader := NewDownloader("", "", false, false)
 
 	testCases := []struct {
 		url      string
@@ -132,7 +138,7 @@ func TestFindDownloadedFile(t *testing.T) {
 		file.Close()
 	}
 
-	downloader := NewDownloader("", "")
+	downloader := NewDownloader("", "", false, false)
 
 	// Test finding existing file
 	result := downloader.findDownloadedFile(tempDir, "test video", "mp4")
